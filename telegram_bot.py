@@ -6,12 +6,17 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Lade Firebase-Anmeldeinformationen aus Umgebungsvariablen
-firebase_credentials = json.loads(os.getenv("FIREBASE_CREDENTIALS"))
-cred = credentials.Certificate(firebase_credentials)
-firebase_admin.initialize_app(cred)
+firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
+if not firebase_credentials:
+    raise ValueError("FIREBASE_CREDENTIALS environment variable is not set")
+firebase_credentials = json.loads(firebase_credentials)
+
 
 # Telegram-Bot-Token
 BOT_TOKEN = os.getenv("BOT_TOKEN")
+if not BOT_TOKEN:
+    raise ValueError("BOT_TOKEN environment variable is not set.")
+
 
 # Chat-ID in Firestore speichern
 def save_chat_id(chat_id):
@@ -34,6 +39,7 @@ async def send_message_to_all(context: ContextTypes.DEFAULT_TYPE, message: str):
 
 # Hauptfunktion
 def main():
+    print("Bot is starting...")
     application = Application.builder().token(BOT_TOKEN).build()
 
     # Command-Handler hinzufügen
@@ -41,6 +47,8 @@ def main():
 
     # Bot starten
     application.run_polling()
+    
+    print("Bot is running...")
 
 if __name__ == "__main__":
     main()
