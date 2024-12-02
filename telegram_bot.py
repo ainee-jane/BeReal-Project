@@ -26,10 +26,34 @@ def save_chat_id(chat_id):
     doc_ref.set({"chat_id": chat_id})
 
 # Begrüßung und Registrierung bei /start
+# Begrüßung und Registrierung bei /start
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
-    save_chat_id(chat_id)
-    await update.message.reply_text("Willkommen zur Studie! Du bist registriert und erhältst Benachrichtigungen.")
+    first_name = update.message.from_user.first_name or "Unbekannt"
+    last_name = update.message.from_user.last_name or ""
+    username = update.message.from_user.username or ""
+
+    # Firebase-Dokument-Referenz
+    doc_ref = db.collection("bereal_users").document(str(chat_id))
+
+    # Benutzer bereits registriert?
+    if doc_ref.get().exists:
+        await update.message.reply_text(f"You are already registered and will receive notifications.")
+        return
+
+    # Benutzer speichern
+    doc_ref.set({
+        "chat_id": chat_id,
+        "name": f"{first_name} {last_name}".strip(),
+        "username": username,
+        "active_days": 0,
+        "survey_links_sent": []
+    })
+
+    await update.message.reply_text(
+        f"Welcome to the study! You are registered and will receive notifications."
+    )
+
 
 # Nachricht an alle Chat-IDs senden
 async def send_message_to_all(context: ContextTypes.DEFAULT_TYPE, message: str):
