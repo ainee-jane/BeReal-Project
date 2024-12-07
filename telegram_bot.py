@@ -67,10 +67,31 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     chat_id = query.message.chat.id
-    group = query.data  # "bereal" oder "bystander"
+    group = query.data  # "bereal", "bystander", oder "additional_entry"
 
-    # Firebase aktualisieren
+    # Firebase aktualisieren oder Handlung basierend auf der Auswahl
     try:
+        if group == "additional_entry":
+            # Survey-Link basierend auf der Gruppe abrufen
+            user_doc = db.collection("chat_ids").document(str(chat_id)).get()
+            if not user_doc.exists:
+                await query.edit_message_text("❌ You are not registered. Please start again with /start.")
+                return
+
+            user_data = user_doc.to_dict()
+            group = user_data.get("group")
+
+            if group == "bereal":
+                survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
+                await context.bot.send_message(chat_id=chat_id, text=f"📋 **BeReal User Survey Link**:\n{survey_link}")
+            elif group == "bystander":
+                survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY_ID={chat_id}"
+                await context.bot.send_message(chat_id=chat_id, text=f"📋 **Bystander Survey Link**:\n{survey_link}")
+            else:
+                await context.bot.send_message(chat_id=chat_id, text="❌ Unknown group. Please contact support.")
+            return
+
+        # Registrierung der Gruppe
         db.collection("chat_ids").document(str(chat_id)).update({
             "group": group
         })
@@ -81,32 +102,31 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Nachricht und Buttons je nach Auswahl
         if group == "bereal":
             text = (
-                "✅ Thank you! You have been registered as a BeReal User.\n\n"
-                "ℹ️ **Information:**\n"
-                "After a BeReal moment, you will receive a notification (15-minute delay) with a link to a survey with quick questions.\n\n"
-                "📅 Participation continues until you complete 14 active days of entries. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n"
-                "➕ **Action:** You can submit multiple entries in one day if additional BeReal interactions occur. Just send me a message using the button below."
+                "✅ **Thank you! You are registered as a BeReal User.**\n\n"
+                "ℹ️ **Info:** After a BeReal moment, you'll get a link with quick questins.\n"
+                "📅 Participation ends after 14 active days. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n" 
+                "➕ **Extra entries:** If more BeReal interactions happen, click below. You can submit multiple entries in one day."
             )
             keyboard = [
-                [InlineKeyboardButton("Report Additional Entry", callback_data="additional_entry")],
+                [InlineKeyboardButton("➕ Report Additional Entry", callback_data="additional_entry")],
             ]
         elif group == "bystander":
             text = (
-                "✅ Thank you! You have been registered as a Bystander.\n\n"
-                "ℹ️ **Information:**\n"
-                "After a BeReal moment, you will receive a notification (15-minute delay) with a link to a survey with quick questions.\n\n"
-                "📅 Participation continues until you complete 14 active days of entries. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n"
-                "➕ **Action:** You can submit multiple entries in one day if additional BeReal interactions occur. Just send me a message using the button below.\n\n"
-                "🚫 **Note:** Ignore notifications if no BeReal moment occurred in your environment—these days will not count as active participation."
+                "✅ **Thank you! You are registered as a Bystander.**\n\n"
+                "ℹ️ **Info:** After a BeReal moment, you'll get a link with quick questins.\n"
+                "📅 Participation ends after 14 active days. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n" 
+                "🚫 **Note:** Ignore notifications if no BeReal moments happened around you.\n"
+                "➕ **Extra entries:** If more BeReal interactions happen, click below. You can submit multiple entries in one day."
             )
             keyboard = [
-                [InlineKeyboardButton("Report Additional Entry", callback_data="additional_entry")],
+                [InlineKeyboardButton("➕ Report Additional Entry", callback_data="additional_entry")],
             ]
         else:
             text = (
-                "❌ Invalid choice. Please choose again:\n\n"
-                "1️⃣ BeReal User\n"
-                "2️⃣ Bystander"
+                "❌ **Invalid choice.**\n"
+                "Please select again:\n"
+                "1️⃣ **BeReal User**\n"
+                "2️⃣ **Bystander**"
             )
             keyboard = [
                 [InlineKeyboardButton("BeReal User", callback_data="bereal")],
@@ -120,22 +140,14 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
 
-
-# Handler für ungültige Eingaben
-async def invalid_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        "Invalid input! Please use the buttons or commands to interact with the bot."
-    )
-
 # Hauptfunktion für Webhooks
 def main():
     print("Bot is starting...")
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Command-Handler
+    # Command-Handler und CallbackQueryHandler
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CallbackQueryHandler(group_selection))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invalid_message))
 
     # Global Error-Handler 
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -148,7 +160,7 @@ def main():
     application.add_error_handler(error_handler)
 
     # Webhook-URL und Server-Details
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Beispiel: "https://<your-app-url>"
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
     if not WEBHOOK_URL:
         raise ValueError("WEBHOOK_URL environment variable is not set.")
 
