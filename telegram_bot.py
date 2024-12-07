@@ -2,6 +2,7 @@ import os
 import json
 import firebase_admin
 from firebase_admin import credentials, firestore
+from firebase_admin.exceptions import FirebaseError
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -26,33 +27,32 @@ def save_chat_id(chat_id):
     doc_ref.set({"chat_id": chat_id})
 
 # Begrüßung und Registrierung bei /start
-# Begrüßung und Registrierung bei /start
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.message.chat_id
-    first_name = update.message.from_user.first_name or "Unbekannt"
-    last_name = update.message.from_user.last_name or ""
-    username = update.message.from_user.username or ""
+    try:
+        chat_id = update.message.chat_id
+        first_name = update.message.from_user.first_name or "Unbekannt"
+        last_name = update.message.from_user.last_name or ""
+        username = update.message.from_user.username or ""
 
-    # Firebase-Dokument-Referenz
-    doc_ref = db.collection("bereal_users").document(str(chat_id))
+        doc_ref = db.collection("bereal_users").document(str(chat_id))
 
-    # Benutzer bereits registriert?
-    if doc_ref.get().exists:
-        await update.message.reply_text(f"You are already registered and will receive notifications.")
-        return
+        if doc_ref.get().exists:
+            await update.message.reply_text(f"You are already registered and will receive notifications.")
+            return
 
-    # Benutzer speichern
-    doc_ref.set({
-        "chat_id": chat_id,
-        "name": f"{first_name} {last_name}".strip(),
-        "username": username,
-        "active_days": 0,
-        "survey_links_sent": []
-    })
+        doc_ref.set({
+            "chat_id": chat_id,
+            "name": f"{first_name} {last_name}".strip(),
+            "username": username,
+            "active_days": 0,
+            "survey_links_sent": []
+        })
 
-    await update.message.reply_text(
-        f"Welcome to the study! You are registered and will receive notifications."
-    )
+        await update.message.reply_text("Welcome to the study! You are registered and will receive notifications.")
+    except FirebaseError as e:
+        await update.message.reply_text("There was an error registering your data. Please try again later.")
+        print(f"Firebase error: {e}")
 
 
 # Nachricht an alle Chat-IDs senden
