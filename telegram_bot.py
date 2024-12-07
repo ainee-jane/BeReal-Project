@@ -33,7 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Benutzer prüfen
         if doc_ref.get().exists:
-            await update.message.reply_text("You are already registered and will receive notifications.")
+            await update.message.reply_text("You are already registered and will receive notifications. Use /new to submit an additional entry.")
             return
 
         # Benutzer speichern
@@ -55,7 +55,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            f"Hi {first_name}, welcome to the study! Please select your group:",
+            f"Welcome to the BeReal study! Please select your group:",
             reply_markup=reply_markup,
         )
 
@@ -63,34 +63,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("There was an error registering your data. Please try again later.")
         print(f"Firebase error: {e}")
 
+# Callback-Handler für Gruppenauswahl
 async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    
     chat_id = query.message.chat.id
-    group = query.data  # "bereal", "bystander", oder "additional_entry"
+    group = query.data  # "bereal" oder "bystander"
 
-    # Firebase aktualisieren oder Handlung basierend auf der Auswahl
     try:
-        if group == "additional_entry":
-            # Survey-Link basierend auf der Gruppe abrufen
-            user_doc = db.collection("chat_ids").document(str(chat_id)).get()
-            if not user_doc.exists:
-                await query.edit_message_text("❌ You are not registered. Please start again with /start.")
-                return
-
-            user_data = user_doc.to_dict()
-            group = user_data.get("group")
-
-            if group == "bereal":
-                survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
-                await context.bot.send_message(chat_id=chat_id, text=f"📋 **BeReal User Survey Link**:\n{survey_link}")
-            elif group == "bystander":
-                survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY_ID={chat_id}"
-                await context.bot.send_message(chat_id=chat_id, text=f"📋 **Bystander Survey Link**:\n{survey_link}")
-            else:
-                await context.bot.send_message(chat_id=chat_id, text="❌ Unknown group. Please contact support.")
-            return
-
         # Registrierung der Gruppe
         db.collection("chat_ids").document(str(chat_id)).update({
             "group": group
@@ -103,42 +84,53 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if group == "bereal":
             text = (
                 "✅ **Thank you! You are registered as a BeReal User.**\n\n"
-                "ℹ️ **Info:** After a BeReal moment, you'll get a link with quick questins.\n"
-                "📅 Participation ends after 14 active days. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n" 
-                "➕ **Extra entries:** If more BeReal interactions happen, click below. You can submit multiple entries in one day."
+                "ℹ️ **Info:** After a BeReal moment, you'll get a survey link (15-minute delay).\n"
+                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
+                "➕ Use /new to submit additional entries if more BeReal interactions occur."
             )
-            keyboard = [
-                [InlineKeyboardButton("➕ Report Additional Entry", callback_data="additional_entry")],
-            ]
         elif group == "bystander":
             text = (
                 "✅ **Thank you! You are registered as a Bystander.**\n\n"
-                "ℹ️ **Info:** After a BeReal moment, you'll get a link with quick questins.\n"
-                "📅 Participation ends after 14 active days. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n" 
-                "🚫 **Note:** Ignore notifications if no BeReal moments happened around you.\n"
-                "➕ **Extra entries:** If more BeReal interactions happen, click below. You can submit multiple entries in one day."
+                "ℹ️ **Info:** After a BeReal moment, you'll get a survey link (15-minute delay).\n"
+                "🚫 Ignore notifications if no BeReal moments occurred near you.\n\n"
+                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n"
+                "➕ Use /new to submit additional entries if more BeReal interactions occur."
             )
-            keyboard = [
-                [InlineKeyboardButton("➕ Report Additional Entry", callback_data="additional_entry")],
-            ]
         else:
-            text = (
-                "❌ **Invalid choice.**\n"
-                "Please select again:\n"
-                "1️⃣ **BeReal User**\n"
-                "2️⃣ **Bystander**"
-            )
-            keyboard = [
-                [InlineKeyboardButton("BeReal User", callback_data="bereal")],
-                [InlineKeyboardButton("Bystander", callback_data="bystander")],
-            ]
+            text = "❌ Invalid group. Please try again with /start."
 
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
 
     except FirebaseError as e:
         await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
+
+# Handler für zusätzlichen Eintrag (/new)
+async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+
+    try:
+        # Benutzerinformationen aus Firebase abrufen
+        user_doc = db.collection("chat_ids").document(str(chat_id)).get()
+        if not user_doc.exists:
+            await update.message.reply_text("❌ You are not registered. Please start with /start.")
+            return
+
+        user_data = user_doc.to_dict()
+        group = user_data.get("group", "")
+
+        # Survey-Link basierend auf Gruppe generieren
+        if group == "bereal":
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
+            await update.message.reply_text(f"📋 **BeReal User Survey Link**:\n{survey_link}")
+        elif group == "bystander":
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY_ID={chat_id}"
+            await update.message.reply_text(f"📋 **Bystander Survey Link**:\n{survey_link}")
+        else:
+            await update.message.reply_text("❌ Unknown group. Please contact support.")
+    except FirebaseError as e:
+        print(f"Firebase error: {e}")
+        await update.message.reply_text("There was an error processing your request. Please try again later.")
 
 # Hauptfunktion für Webhooks
 def main():
@@ -147,8 +139,9 @@ def main():
 
     # Command-Handler und CallbackQueryHandler
     application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
-
+    
     # Global Error-Handler 
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
         """Fehler global behandeln und loggen."""
@@ -158,6 +151,7 @@ def main():
             print(f"Error: {e}")
 
     application.add_error_handler(error_handler)
+
 
     # Webhook-URL und Server-Details
     WEBHOOK_URL = os.getenv("WEBHOOK_URL")
