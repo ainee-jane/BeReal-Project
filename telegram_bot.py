@@ -83,18 +83,18 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Nachricht und Buttons je nach Auswahl
         if group == "bereal":
             text = (
-                "✅ **Thank you! You are registered as a BeReal User.**\n\n"
-                "ℹ️ **Info:** After a BeReal moment, you'll get a survey link (15-minute delay).\n"
+                "✅ **Thank you! You are registered as a BeReal User. Your Participant-ID is: {chat_id} **\n\n"
+                "💌 After a BeReal moment, you'll get a survey link with short questions.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
-                "➕ Use /new to submit additional entries if more BeReal interactions occur."
+                "➕ Use /new to submit additional entries when posting a BeLate."
             )
         elif group == "bystander":
             text = (
-                "✅ **Thank you! You are registered as a Bystander.**\n\n"
-                "ℹ️ **Info:** After a BeReal moment, you'll get a survey link (15-minute delay).\n"
-                "🚫 Ignore notifications if no BeReal moments occurred near you.\n\n"
-                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n"
-                "➕ Use /new to submit additional entries if more BeReal interactions occur."
+                "✅ **Thank you! You are registered as a Bystander. Your Participant-ID is: {chat_id} **\n\n"
+                "💌️ After a BeReal moment, you'll get a survey link with short questions.\n\n"
+                "🚫 Ignore notifications if you haven't experienced a real moment.\n\n"
+                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
+                "➕ Use /new to submit additional entries if you experience more BeReal interactions."
             )
         else:
             text = "❌ Invalid group. Please try again with /start."
@@ -122,10 +122,25 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Survey-Link basierend auf Gruppe generieren
         if group == "bereal":
             survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
-            await update.message.reply_text(f"📋 **BeReal User Survey Link**:\n{survey_link}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"📋 **BeReal User Survey Link**:\n{survey_link}\n\n"
+                    f"➕ Use /new to submit additional entries when posting a BeLate."
+                ),
+                parse_mode="Markdown"
+            )
         elif group == "bystander":
             survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY_ID={chat_id}"
-            await update.message.reply_text(f"📋 **Bystander Survey Link**:\n{survey_link}")
+            await context.bot.send_message(
+                chat_id=chat_id,
+                text=(
+                    f"📋 **Bystander Survey Link**:\n{survey_link}\n\n"
+                    f"➕ Use /new to submit additional entries if you experience more BeReal interactions."
+                ),
+                parse_mode="Markdown"
+            )
+
         else:
             await update.message.reply_text("❌ Unknown group. Please contact support.")
     except FirebaseError as e:
