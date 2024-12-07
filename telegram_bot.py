@@ -63,7 +63,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("There was an error registering your data. Please try again later.")
         print(f"Firebase error: {e}")
 
-# Callback-Handler für Gruppenwahl
 async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -75,12 +74,52 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         db.collection("chat_ids").document(str(chat_id)).update({
             "group": group
         })
-        await query.edit_message_text(
-            f"Thank you! You have been registered as a {group.capitalize()}. You will receive notifications soon!"
-        )
+
+        # Bearbeite die ursprüngliche Nachricht, um die Buttons inaktiv zu machen
+        await query.edit_message_reply_markup(reply_markup=None)
+
+        # Nachricht und Buttons je nach Auswahl
+        if group == "bereal":
+            text = (
+                "✅ Thank you! You have been registered as a BeReal User.\n\n"
+                "ℹ️ **Information:**\n"
+                "After a BeReal moment, you will receive a notification (15-minute delay) with a link to a survey with quick questions.\n\n"
+                "📅 Participation continues until you complete 14 active days of entries. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n"
+                "➕ **Action:** You can submit multiple entries in one day if additional BeReal interactions occur. Just send me a message using the button below."
+            )
+            keyboard = [
+                [InlineKeyboardButton("Report Additional Entry", callback_data="additional_entry")],
+            ]
+        elif group == "bystander":
+            text = (
+                "✅ Thank you! You have been registered as a Bystander.\n\n"
+                "ℹ️ **Information:**\n"
+                "After a BeReal moment, you will receive a notification (15-minute delay) with a link to a survey with quick questions.\n\n"
+                "📅 Participation continues until you complete 14 active days of entries. A day counts as 'active' when at least one relevant interaction is reported. I will inform you when you are finished.\n\n"
+                "➕ **Action:** You can submit multiple entries in one day if additional BeReal interactions occur. Just send me a message using the button below.\n\n"
+                "🚫 **Note:** Ignore notifications if no BeReal moment occurred in your environment—these days will not count as active participation."
+            )
+            keyboard = [
+                [InlineKeyboardButton("Report Additional Entry", callback_data="additional_entry")],
+            ]
+        else:
+            text = (
+                "❌ Invalid choice. Please choose again:\n\n"
+                "1️⃣ BeReal User\n"
+                "2️⃣ Bystander"
+            )
+            keyboard = [
+                [InlineKeyboardButton("BeReal User", callback_data="bereal")],
+                [InlineKeyboardButton("Bystander", callback_data="bystander")],
+            ]
+
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await context.bot.send_message(chat_id=chat_id, text=text, reply_markup=reply_markup, parse_mode="Markdown")
+
     except FirebaseError as e:
-        await query.edit_message_text("There was an error saving your group. Please try again later.")
+        await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
+
 
 # Handler für ungültige Eingaben
 async def invalid_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
