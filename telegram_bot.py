@@ -3,8 +3,8 @@ import json
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
-from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, ContextTypes, filters
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters, MessageHandler
 
 # Firebase-Anmeldeinformationen laden
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
@@ -46,39 +46,46 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         })
 
         # Nutzer informieren und Gruppe abfragen
-        context.user_data["chat_id"] = chat_id
-        context.user_data["name"] = f"{first_name} {last_name}".strip()
+        keyboard = [
+            [
+                InlineKeyboardButton("BeReal User", callback_data="bereal"),
+                InlineKeyboardButton("Bystander", callback_data="bystander"),
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+
         await update.message.reply_text(
-            f"Hi {first_name}, welcome to the study! Please reply with your group:\n"
-            f"1. BeReal User\n"
-            f"2. Bystander"
+            f"Hi {first_name}, welcome to the study! Please select your group:",
+            reply_markup=reply_markup,
         )
 
     except FirebaseError as e:
         await update.message.reply_text("There was an error registering your data. Please try again later.")
         print(f"Firebase error: {e}")
 
-# Gruppenwahl-Handler
+# Callback-Handler für Gruppenwahl
 async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = context.user_data.get("chat_id")
-    user_name = context.user_data.get("name")
-    group_text = update.message.text.strip().lower()
-
-    # Gruppen bestimmen
-    if group_text in ["1", "bereal user"]:
-        group = "bereal"
-    elif group_text in ["2", "bystander"]:
-        group = "bystander"
-    else:
-        await update.message.reply_text("Invalid response. Please reply with 1 or 2.")
-        return
+    query = update.callback_query
+    await query.answer()
+    chat_id = query.message.chat.id
+    group = query.data  # "bereal" oder "bystander"
 
     # Firebase aktualisieren
-    db.collection("chat_ids").document(str(chat_id)).update({
-        "group": group
-    })
+    try:
+        db.collection("chat_ids").document(str(chat_id)).update({
+            "group": group
+        })
+        await query.edit_message_text(
+            f"Thank you! You have been registered as a {group.capitalize()}. You will receive notifications soon!"
+        )
+    except FirebaseError as e:
+        await query.edit_message_text("There was an error saving your group. Please try again later.")
+        print(f"Firebase error: {e}")
+
+# Handler für ungültige Eingaben
+async def invalid_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        f"Thank you! You have been registered as a {group}. You will receive notifications soon!"
+        "Invalid input! Please use the buttons or commands to interact with the bot."
     )
 
 # Hauptfunktion für Webhooks
@@ -88,7 +95,8 @@ def main():
 
     # Command-Handler
     application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, group_selection))
+    application.add_handler(CallbackQueryHandler(group_selection))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, invalid_message))
 
     # Global Error-Handler 
     async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
