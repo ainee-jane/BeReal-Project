@@ -68,8 +68,20 @@ def main():
     print("Bot is starting...")
     application = Application.builder().token(BOT_TOKEN).build()
 
-    # Command-Handler hinzufügen
+    # Command-Handler
     application.add_handler(CommandHandler("start", start))
+
+    # Global Error-Handler 
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Fehler global behandeln und loggen."""
+        try:
+            raise context.error
+        except TelegramError as e:
+            print(f"Telegram error: {e}")
+        except Exception as e:
+            print(f"Unknown error: {e}")
+
+    application.add_error_handler(error_handler)
 
     # Webhook-URL und Server-Details
     WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Beispiel: "https://<your-app-url>"
@@ -77,12 +89,15 @@ def main():
         raise ValueError("WEBHOOK_URL environment variable is not set.")
 
     # Webhook starten
-    application.run_webhook(
-        listen="0.0.0.0",  # Lauscht auf alle IPs
-        port=8443,        # Standardport für Telegram-Webhooks
-        webhook_url=WEBHOOK_URL  # Die vollständige URL deines Bots
-    )
-    print("Bot is running with Webhooks...")
+    try:
+        application.run_webhook(
+            listen="0.0.0.0",  # Lauscht auf alle IPs
+            port=8443,        # Standardport für Telegram-Webhooks
+            webhook_url=WEBHOOK_URL  # Die vollständige URL deines Bots
+        )
+        print("Bot is running with Webhooks...")
+    except Exception as e:
+        print(f"Failed to start the bot: {e}")
 
 if __name__ == "__main__":
     main()
