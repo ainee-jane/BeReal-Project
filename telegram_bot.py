@@ -1,4 +1,3 @@
-from flask import Flask, request, jsonify
 import os
 import json
 import firebase_admin
@@ -22,18 +21,17 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is not set.")
 
-app = Flask(__name__)
-
 # Funktion zum Speichern der Chat-ID in Firestore
 def save_chat_id(chat_id):
     doc_ref = db.collection("chat_ids").document(str(chat_id))
     doc_ref.set({"chat_id": chat_id})
 
 # Begrüßung und Registrierung bei /start
+
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_id = update.message.chat_id
-        first_name = update.message.from_user.first_name or "Unknown"
+        first_name = update.message.from_user.first_name or "Unbekannt"
         last_name = update.message.from_user.last_name or ""
         username = update.message.from_user.username or ""
 
@@ -65,18 +63,6 @@ async def send_message_to_all(context: ContextTypes.DEFAULT_TYPE, message: str):
         if chat_id:
             await context.bot.send_message(chat_id=chat_id, text=message)
 
-# Status-Endpunkt für UptimeRobot
-@app.route("/", methods=["GET", "POST"])
-def health_check():
-    if request.method == "GET":
-        return jsonify({"status": "ok", "message": "Bot is running"}), 200
-    elif request.method == "POST":
-        data = request.json
-        if "monitoring" in data:
-            return jsonify({"status": "ok", "message": "Monitoring request received"}), 200
-        else:
-            return jsonify({"status": "error", "message": "Invalid request"}), 400
-
 # Hauptfunktion für Webhooks
 def main():
     print("Bot is starting...")
@@ -90,8 +76,10 @@ def main():
         """Fehler global behandeln und loggen."""
         try:
             raise context.error
+        except TelegramError as e:
+            print(f"Telegram error: {e}")
         except Exception as e:
-            print(f"Error: {e}")
+            print(f"Unknown error: {e}")
 
     application.add_error_handler(error_handler)
 
