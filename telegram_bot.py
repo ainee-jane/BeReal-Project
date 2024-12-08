@@ -1,25 +1,18 @@
 import os
 import json
-from flask import Flask, request, jsonify
-import firebase_admin
-from firebase_admin import credentials, firestore
-from firebase_admin.exceptions import FirebaseError
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup, Update
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
-from datetime import datetime
-import pytz
+from firebase_admin import credentials, firestore, initialize_app
+from firebase_admin.exceptions import FirebaseError
 
-# Flask-App initialisieren
-app = Flask(__name__)
-
-# Firebase-Anmeldeinformationen laden
+# Firebase initialisieren
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
 if not firebase_credentials:
     raise ValueError("FIREBASE_CREDENTIALS environment variable is not set")
-firebase_credentials = json.loads(firebase_credentials)
 
+firebase_credentials = json.loads(firebase_credentials)
 cred = credentials.Certificate(firebase_credentials)
-firebase_admin.initialize_app(cred)
+initialize_app(cred)
 db = firestore.client()
 
 # Telegram-Bot-Token
@@ -27,7 +20,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is not set.")
 
-# Start-Handler: Registrierung und Gruppenwahl
+
+# Start-Handler
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_id = update.message.chat_id
@@ -37,51 +31,42 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         doc_ref = db.collection("chat_ids").document(str(chat_id))
 
-        # Benutzer prüfen
         if doc_ref.get().exists:
-            await update.message.reply_text("You are already registered and will receive notifications. Use /new to submit an additional entry.")
+            await update.message.reply_text("You are already registered and will receive notifications. Use /new to submit additional entries.")
             return
 
-        # Benutzer speichern
         doc_ref.set({
             "chat_id": chat_id,
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
-            "active_days_list": [],  # Neue Struktur: Liste der aktiven Tage
+            "active_days_list": [],
             "survey_links_sent": [],
         })
 
-        # Nutzer informieren und Gruppe abfragen
         keyboard = [
-            [
-                InlineKeyboardButton("BeReal User", callback_data="bereal"),
-                InlineKeyboardButton("Bystander", callback_data="bystander"),
-            ]
+            [InlineKeyboardButton("BeReal User", callback_data="bereal"),
+             InlineKeyboardButton("Bystander", callback_data="bystander")]
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text(
-            f"Welcome to the BeReal study! Please select your group:",
-            reply_markup=reply_markup,
-        )
+        await update.message.reply_text("Welcome to the BeReal study! Please select your group:", reply_markup=reply_markup)
 
     except FirebaseError as e:
-        await update.message.reply_text("There was an error registering your data. Please try again later.")
+        await update.message.reply_text("Error registering your data. Please try again later.")
         print(f"Firebase error: {e}")
+
 
 # Callback-Handler für Gruppenauswahl
 async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    
+
     chat_id = query.message.chat.id
     group = query.data  # "bereal" oder "bystander"
 
     try:
         # Registrierung der Gruppe
-        db.collection("chat_ids").document(str(chat_id)).update({
-            "group": group
-        })
+        db.collection("chat_ids").document(str(chat_id)).update({"group": group})
 
         # Bearbeite die ursprüngliche Nachricht, um die Buttons inaktiv zu machen
         await query.edit_message_reply_markup(reply_markup=None)
@@ -111,49 +96,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
 
-# Flask-Endpoint: Aktive Tage tracken
-@app.route("/track_active_day", methods=["GET"])
-def track_active_day():
-    # STUDY_ID aus der URL abrufen
-    study_id = request.args.get("STUDY_ID")
-    active = request.args.get("active", "false").lower()
-
-    if not study_id:
-        return jsonify({"error": "Missing STUDY_ID"}), 400
-
-    # STUDY_ID als chat_id verwenden
-    chat_id = study_id
-
-    # Datum des aktuellen Tages (UTC)
-    current_date = datetime.now(pytz.utc).date()
-
-    # Firebase-Dokument abrufen
-    doc_ref = db.collection("chat_ids").document(chat_id)
-    doc = doc_ref.get()
-
-    if not doc.exists():
-        return jsonify({"error": "Participant not found"}), 404
-
-    # Daten aus dem Dokument abrufen
-    user_data = doc.to_dict()
-    active_days_list = user_data.get("active_days_list", [])
-
-    # Aktive Tage aktualisieren
-    if active == "true":
-        if str(current_date) not in active_days_list:
-            active_days_list.append(str(current_date))
-            try:
-                doc_ref.update({"active_days_list": active_days_list})
-                return jsonify({"message": "Active day recorded", "active_days": len(active_days_list)}), 200
-            except Exception as e:
-                print(f"Update error: {e}")
-                return jsonify({"error": "Failed to update active_days_list"}), 500
-        else:
-            return jsonify({"message": "Today has already been counted as an active day"}), 200
-
-    return jsonify({"message": "Tracking updated successfully", "STUDY_ID": study_id, "active": active}), 200
-
-# Handler für zusätzlichen Eintrag (/new)
+# Command-Handler für neuen Eintrag (/new)
 async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
 
@@ -188,24 +131,19 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 ),
                 parse_mode=None
             )
-
         else:
             await update.message.reply_text("❌ Unknown group. Please contact support.")
     except FirebaseError as e:
         print(f"Firebase error: {e}")
         await update.message.reply_text("There was an error processing your request. Please try again later.")
 
-# Hauptfunktion für Webhooks
 def main():
     print("Bot is starting...")
     application = Application.builder().token(BOT_TOKEN).build()
-
-    # Command-Handler und CallbackQueryHandler
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
 
-    # Webhook-URL und Server-Details
     WEBHOOK_URL = os.getenv("WEBHOOK_URL")
     if not WEBHOOK_URL:
         raise ValueError("WEBHOOK_URL environment variable is not set.")
@@ -221,6 +159,8 @@ def main():
     except Exception as e:
         print(f"Failed to start the bot: {e}")
 
+     print("Bot is running with Webhooks...")
+
+
 if __name__ == "__main__":
     main()
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8443)))
