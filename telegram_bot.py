@@ -172,7 +172,7 @@ def track_active_day():
     active = request.args.get("active")
 
     if not study_id or active is None:
-        return jsonify({"error": "Missing parameters"}), 400
+        return jsonify({"error": "Missing STUDY_ID or active parameter"}), 400
 
     # Firebase-Dokument abrufen
     doc_ref = db.collection("chat_ids").document(study_id)
@@ -183,26 +183,35 @@ def track_active_day():
 
     user_data = doc.to_dict()
 
-    # Datum des aktuellen Tages
+    # Datum des aktuellen Tages (in UTC)
     current_date = datetime.now(pytz.utc).date()
 
-    # Aktive Tage prüfen
-    active_days_list = user_data.get("active_days_list", [])
+    # Aktive Tage prüfen und aktualisieren
+    active_days_list = user_data.get("active_days_list", [])  # Liste von aktiven Tagen
     if active.lower() == "true":
-        if str(current_date) not in active_days_list:
+        if str(current_date) in active_days_list:
+            # Aktiver Tag wurde bereits gezählt
+            bot.send_message(
+                chat_id=study_id,
+                text=f"✅ Thank you! Today has already been counted as an active day. Total active days: {len(active_days_list)}."
+            )
+        else:
+            # Neuen aktiven Tag hinzufügen
             active_days_list.append(str(current_date))
             doc_ref.update({"active_days_list": active_days_list})
             bot.send_message(
                 chat_id=study_id,
-                text=f"✅ Thank you! Today has been marked as active. Total active days: {len(active_days_list)}."
+                text=f"✅ Thank you! Your day has been marked as active. Total active days: {len(active_days_list)}."
             )
     else:
+        # Keine Aktivität für den Tag
         bot.send_message(
             chat_id=study_id,
             text="⚠️ Your response has been recorded, but today does not count as an active day."
         )
 
     return jsonify({"message": "Tracking updated successfully"}), 200
+
 
 # Hauptfunktion
 def main():
