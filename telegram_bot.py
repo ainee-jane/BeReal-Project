@@ -114,6 +114,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Flask-Endpoint: Aktive Tage tracken
 @app.route("/track_active_day", methods=["GET"])
 def track_active_day():
+    print(request.args)
     study_id = request.args.get("STUDY_ID")
     active = request.args.get("active", "false").lower()
 
@@ -140,7 +141,7 @@ def track_active_day():
         else:
             return jsonify({"message": "Today has already been counted as an active day"}), 200
 
-    return jsonify({"message": "Tracking updated successfully"}), 200
+    return jsonify({"message": "Tracking updated successfully", "STUDY_ID": study_id, "active": active}), 200
 
 # Handler für zusätzlichen Eintrag (/new)
 async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -212,4 +213,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    app.run(host="0.0.0.0", port=5000)  # Flask-Server starten
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 8443)))
