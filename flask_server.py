@@ -21,12 +21,15 @@ db = firestore.client()
 # Flask-Endpoint: Aktive Tage tracken
 @app.route("/track_active_day", methods=["GET"])
 def track_active_day():
+    print(f"Incoming request: {request.args}")  # Loggt alle URL-Parameter
+   
     # STUDY_ID aus der URL abrufen
     study_id = request.args.get("STUDY_ID")
     active = request.args.get("active", "false").lower()
 
-    if not study_id:
-        return jsonify({"error": "Missing STUDY_ID"}), 400
+    # Validierung von STUDY_ID
+    if not study_id or not study_id.isdigit():
+        return jsonify({"error": "Invalid or missing STUDY_ID"}), 400
 
     # STUDY_ID als chat_id verwenden
     chat_id = study_id
@@ -56,7 +59,6 @@ def track_active_day():
                 print(f"Update error: {e}")
                 return jsonify({"error": "Failed to update active_days_list"}), 500
         else:
-            # Dieser Teil überprüft, ob der aktuelle Tag bereits gezählt wurde
             return jsonify({"message": "Today has already been counted as an active day"}), 200
 
     return jsonify({"message": "Tracking updated successfully", "STUDY_ID": study_id, "active": active}), 200
