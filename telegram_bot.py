@@ -158,24 +158,24 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Survey-Link basierend auf Gruppe generieren
         if group == "bereal":
-            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY\\_ID={chat_id}"
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=(
                     f"📋 **BeReal User Survey Link**:\n{survey_link}\n\n"
                     f"➕ Use /new to submit additional entries when posting a BeLate."
                 ),
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
         elif group == "bystander":
-            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY_ID={chat_id}"
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_Bystander123?STUDY\\_ID={chat_id}"
             await context.bot.send_message(
                 chat_id=chat_id,
                 text=(
                     f"📋 **Bystander Survey Link**:\n{survey_link}\n\n"
                     f"➕ Use /new to submit additional entries if you experience more BeReal interactions."
                 ),
-                parse_mode="Markdown"
+                parse_mode="MarkdownV2"
             )
 
         else:
