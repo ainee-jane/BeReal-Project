@@ -4,7 +4,7 @@ from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, Bot
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 from datetime import datetime
 import pytz
@@ -26,24 +26,20 @@ db = firestore.client()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is not set.")
-bot = Bot(token=BOT_TOKEN)
-
-# Telegram-Bot-Setup
-application = Application.builder().token(BOT_TOKEN).build()
 
 # Start-Handler: Registrierung und Gruppenwahl
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         chat_id = update.message.chat_id
-        first_name = update.message.from_user.first_name or "Unknown"
+        first_name = update.message.from_user.first_name or "Unbekannt"
         last_name = update.message.from_user.last_name or ""
         username = update.message.from_user.username or ""
 
         doc_ref = db.collection("chat_ids").document(str(chat_id))
 
         # Benutzer prüfen
-        if doc_ref.get().exists():
-            await update.message.reply_text("✅ You are already registered and will receive notifications. Use /new to submit additional entries.")
+        if doc_ref.get().exists:
+            await update.message.reply_text("You are already registered and will receive notifications. Use /new to submit an additional entry.")
             return
 
         # Benutzer speichern
@@ -51,8 +47,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "chat_id": chat_id,
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
-            "group": None,
-            "active_days_list": [],
+            "active_days_list": [],  # Neue Struktur: Liste der aktiven Tage
             "survey_links_sent": [],
         })
 
@@ -66,12 +61,12 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
 
         await update.message.reply_text(
-            "👋 Welcome to the BeReal study! Please select your group:",
+            f"Welcome to the BeReal study! Please select your group:",
             reply_markup=reply_markup,
         )
 
     except FirebaseError as e:
-        await update.message.reply_text("There was an error. Please try again later.")
+        await update.message.reply_text("There was an error registering your data. Please try again later.")
         print(f"Firebase error: {e}")
 
 # Callback-Handler für Gruppenauswahl
@@ -116,6 +111,37 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
 
+# Flask-Endpoint: Aktive Tage tracken
+@app.route("/track_active_day", methods=["GET"])
+def track_active_day():
+    study_id = request.args.get("STUDY_ID")
+    active = request.args.get("active", "false").lower()
+
+    if not study_id:
+        return jsonify({"error": "Missing STUDY_ID"}), 400
+
+    # Datum des aktuellen Tages (UTC)
+    current_date = datetime.now(pytz.utc).date()
+
+    doc_ref = db.collection("chat_ids").document(study_id)
+    doc = doc_ref.get()
+
+    if not doc.exists():
+        return jsonify({"error": "Participant not found"}), 404
+
+    user_data = doc.to_dict()
+    active_days_list = user_data.get("active_days_list", [])
+
+    if active == "true":
+        if str(current_date) not in active_days_list:
+            active_days_list.append(str(current_date))
+            doc_ref.update({"active_days_list": active_days_list})
+            return jsonify({"message": "Active day recorded", "active_days": len(active_days_list)}), 200
+        else:
+            return jsonify({"message": "Today has already been counted as an active day"}), 200
+
+    return jsonify({"message": "Tracking updated successfully"}), 200
+
 # Handler für zusätzlichen Eintrag (/new)
 async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
@@ -158,61 +184,6 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Firebase error: {e}")
         await update.message.reply_text("There was an error processing your request. Please try again later.")
 
-# Flask-Handler für Telegram Webhook
-@app.route(f"/{BOT_TOKEN}", methods=["POST"])
-def telegram_webhook():
-    update = Update.de_json(request.get_json(), bot)
-    application.update_queue.put_nowait(update)
-    return jsonify({"status": "ok"})
-
-# Flask-Handler für aktive Tage
-@app.route("/track_active_day", methods=["GET"])
-def track_active_day():
-    study_id = request.args.get("STUDY_ID")
-    active = request.args.get("active")
-
-    if not study_id or active is None:
-        return jsonify({"error": "Missing STUDY_ID or active parameter"}), 400
-
-    # Firebase-Dokument abrufen
-    doc_ref = db.collection("chat_ids").document(study_id)
-    doc = doc_ref.get()
-
-    if not doc.exists():
-        return jsonify({"error": "Participant not found"}), 404
-
-    user_data = doc.to_dict()
-
-    # Datum des aktuellen Tages (in UTC)
-    current_date = datetime.now(pytz.utc).date()
-
-    # Aktive Tage prüfen und aktualisieren
-    active_days_list = user_data.get("active_days_list", [])  # Liste von aktiven Tagen
-    if active.lower() == "true":
-        if str(current_date) in active_days_list:
-            # Aktiver Tag wurde bereits gezählt
-            bot.send_message(
-                chat_id=study_id,
-                text=f"✅ Thank you! Today has already been counted as an active day. Total active days: {len(active_days_list)}."
-            )
-        else:
-            # Neuen aktiven Tag hinzufügen
-            active_days_list.append(str(current_date))
-            doc_ref.update({"active_days_list": active_days_list})
-            bot.send_message(
-                chat_id=study_id,
-                text=f"✅ Thank you! Your day has been marked as active. Total active days: {len(active_days_list)}."
-            )
-    else:
-        # Keine Aktivität für den Tag
-        bot.send_message(
-            chat_id=study_id,
-            text="⚠️ Your response has been recorded, but today does not count as an active day."
-        )
-
-    return jsonify({"message": "Tracking updated successfully"}), 200
-
-
 # Hauptfunktion für Webhooks
 def main():
     print("Bot is starting...")
@@ -222,36 +193,23 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
-    
-    # Global Error-Handler 
-    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Fehler global behandeln und loggen."""
-        try:
-            raise context.error
-        except Exception as e:
-            print(f"Error: {e}")
 
-    application.add_error_handler(error_handler)
-
-    # Webhook-URL und dynamischer Port
+    # Webhook-URL und Server-Details
     WEBHOOK_URL = os.getenv("WEBHOOK_URL")
     if not WEBHOOK_URL:
         raise ValueError("WEBHOOK_URL environment variable is not set.")
 
-    # Dynamischen Port abrufen
-    port = int(os.getenv("PORT", 8443))  # Standardport auf 8443 setzen, falls PORT nicht verfügbar ist
-
     # Webhook starten
     try:
         application.run_webhook(
-            listen="0.0.0.0",  # Lauscht auf alle IPs
-            port=port,         # Dynamischer Port
-            webhook_url=WEBHOOK_URL  # Die vollständige URL deines Bots
+            listen="0.0.0.0",
+            port=8443,
+            webhook_url=WEBHOOK_URL
         )
-        print(f"Bot is running with Webhooks on port {port}...")
+        print("Bot is running with Webhooks...")
     except Exception as e:
         print(f"Failed to start the bot: {e}")
 
 if __name__ == "__main__":
     main()
-
+    app.run(host="0.0.0.0", port=5000)  # Flask-Server starten
