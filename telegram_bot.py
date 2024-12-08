@@ -149,7 +149,7 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         # Benutzerinformationen aus Firebase abrufen
         user_doc = db.collection("chat_ids").document(str(chat_id)).get()
-        if not user_doc.exists():
+        if not user_doc.exists:
             await update.message.reply_text("❌ You are not registered. Please start with /start.")
             return
 
