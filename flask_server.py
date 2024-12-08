@@ -41,7 +41,7 @@ def track_active_day():
     doc_ref = db.collection("chat_ids").document(chat_id)
     doc = doc_ref.get()
 
-    if not doc.exists():
+    if not doc.exists:
         return jsonify({"error": "Participant not found"}), 404
 
     # Daten aus dem Dokument abrufen
