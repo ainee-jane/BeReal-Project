@@ -114,30 +114,40 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # Flask-Endpoint: Aktive Tage tracken
 @app.route("/track_active_day", methods=["GET"])
 def track_active_day():
-    print(request.args)
+    # STUDY_ID aus der URL abrufen
     study_id = request.args.get("STUDY_ID")
     active = request.args.get("active", "false").lower()
 
     if not study_id:
         return jsonify({"error": "Missing STUDY_ID"}), 400
 
+    # STUDY_ID als chat_id verwenden
+    chat_id = study_id
+
     # Datum des aktuellen Tages (UTC)
     current_date = datetime.now(pytz.utc).date()
 
-    doc_ref = db.collection("chat_ids").document(study_id)
+    # Firebase-Dokument abrufen
+    doc_ref = db.collection("chat_ids").document(chat_id)
     doc = doc_ref.get()
 
     if not doc.exists():
         return jsonify({"error": "Participant not found"}), 404
 
+    # Daten aus dem Dokument abrufen
     user_data = doc.to_dict()
     active_days_list = user_data.get("active_days_list", [])
 
+    # Aktive Tage aktualisieren
     if active == "true":
         if str(current_date) not in active_days_list:
             active_days_list.append(str(current_date))
-            doc_ref.update({"active_days_list": active_days_list})
-            return jsonify({"message": "Active day recorded", "active_days": len(active_days_list)}), 200
+            try:
+                doc_ref.update({"active_days_list": active_days_list})
+                return jsonify({"message": "Active day recorded", "active_days": len(active_days_list)}), 200
+            except Exception as e:
+                print(f"Update error: {e}")
+                return jsonify({"error": "Failed to update active_days_list"}), 500
         else:
             return jsonify({"message": "Today has already been counted as an active day"}), 200
 
