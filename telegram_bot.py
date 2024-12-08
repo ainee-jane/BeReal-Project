@@ -213,24 +213,45 @@ def track_active_day():
     return jsonify({"message": "Tracking updated successfully"}), 200
 
 
-# Hauptfunktion
+# Hauptfunktion für Webhooks
 def main():
-    # Handlers hinzufügen
+    print("Bot is starting...")
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # Command-Handler und CallbackQueryHandler
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
+    
+    # Global Error-Handler 
+    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+        """Fehler global behandeln und loggen."""
+        try:
+            raise context.error
+        except Exception as e:
+            print(f"Error: {e}")
 
-    # Webhook-URL setzen
-    webhook_url = os.getenv("WEBHOOK_URL")
-    if not webhook_url:
+    application.add_error_handler(error_handler)
+
+    # Webhook-URL und dynamischer Port
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
+    if not WEBHOOK_URL:
         raise ValueError("WEBHOOK_URL environment variable is not set.")
 
-    # Webhook für Telegram
-    application.run_webhook(
-        listen="0.0.0.0",
-        port=5000,
-        webhook_url=f"{webhook_url}/{BOT_TOKEN}"
-    )
+    # Dynamischen Port abrufen
+    port = int(os.getenv("PORT", 8443))  # Standardport auf 8443 setzen, falls PORT nicht verfügbar ist
+
+    # Webhook starten
+    try:
+        application.run_webhook(
+            listen="0.0.0.0",  # Lauscht auf alle IPs
+            port=port,         # Dynamischer Port
+            webhook_url=WEBHOOK_URL  # Die vollständige URL deines Bots
+        )
+        print(f"Bot is running with Webhooks on port {port}...")
+    except Exception as e:
+        print(f"Failed to start the bot: {e}")
 
 if __name__ == "__main__":
     main()
+
