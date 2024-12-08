@@ -1,10 +1,17 @@
 import os
 import json
+from flask import Flask, request, jsonify
 import firebase_admin
 from firebase_admin import credentials, firestore
 from firebase_admin.exceptions import FirebaseError
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, filters, MessageHandler
+from telegram import Bot
+from datetime import datetime
+import pytz
+
+# Flask-App initialisieren
+app = Flask(__name__)
 
 # Firebase-Anmeldeinformationen laden
 firebase_credentials = os.getenv("FIREBASE_CREDENTIALS")
@@ -20,6 +27,7 @@ db = firestore.client()
 BOT_TOKEN = os.getenv("BOT_TOKEN")
 if not BOT_TOKEN:
     raise ValueError("BOT_TOKEN environment variable is not set.")
+bot = Bot(token=BOT_TOKEN)
 
 # Start-Handler: Registrierung und Gruppenwahl
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -41,7 +49,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "chat_id": chat_id,
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
-            "active_days": 0,
+            "group": None,
+            "active_days_list": [],
             "survey_links_sent": [],
         })
 
@@ -92,7 +101,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text = (
                 f"✅ **Thank you! You are registered as a Bystander. Your Participant-ID is: {chat_id} **\n\n"
                 "💌️ After a BeReal moment, you'll get a survey link with short questions.\n\n"
-                "🚫 Ignore notifications if you haven't experienced a real moment.\n\n"
+                "🚫 Ignore notifications if you haven't experienced a BeReal moment.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
                 "➕ Use /new to submit additional entries if you experience more BeReal interactions."
             )
@@ -147,42 +156,85 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Firebase error: {e}")
         await update.message.reply_text("There was an error processing your request. Please try again later.")
 
-# Hauptfunktion für Webhooks
+# Flask-Handler für aktive Tage
+@app.route("/track_active_day", methods=["GET"])
+def track_active_day():
+    print(f"Received request: {request.args}")
+    study_id = request.args.get("STUDY_ID")
+    active = request.args.get("active")
+
+    if not study_id or active is None:
+        return jsonify({"error": "Missing STUDY_ID or active parameter"}), 400
+
+    # Firebase-Dokument abrufen
+    doc_ref = db.collection("chat_ids").document(study_id)
+    doc = doc_ref.get()
+
+    if not doc.exists():
+        return jsonify({"error": "Participant not found"}), 404
+
+    user_data = doc.to_dict()
+
+    # Datum des aktuellen Tages (in UTC)
+    current_date = datetime.now(pytz.utc).date()
+
+    # Aktive Tage prüfen und aktualisieren
+    active_days_list = user_data.get("active_days_list", [])  # Liste von aktiven Tagen
+    if active.lower() == "true":
+        if str(current_date) in active_days_list:
+            try:
+                # Aktiver Tag wurde bereits gezählt
+                bot.send_message(
+                    chat_id=study_id,
+                    text=f"✅ Thank you! Your response has been recorded. Today has already been counted as an active day. Total active days: {len(active_days_list)}.",
+                )
+            except Exception as e:
+                 print(f"Failed to send message: {e}")
+        else:
+            # Neuen aktiven Tag hinzufügen
+            active_days_list.append(str(current_date))
+            doc_ref.update({"active_days_list": active_days_list})
+            try: 
+                bot.send_message(
+                    chat_id=study_id,
+                    text=f"✅ Thank you! Your day has been marked as active. Total active days: {len(active_days_list)}.",
+                )
+            except Exception as e:
+                print(f"Failed to send message: {e}")
+    else:
+        # Keine Aktivität für den Tag
+        try: 
+            bot.send_message(
+                chat_id=study_id,
+                text="⚠️ Your response has been recorded, but today does not count as an active day.",
+            )
+        except Exception as e:
+         print(f"Failed to send message: {e}")
+    return jsonify({"message": "Tracking updated successfully"}), 200
+
+# Hauptfunktion: Telegram und Flask zusammenführen
 def main():
-    print("Bot is starting...")
+    # Telegram-Bot
     application = Application.builder().token(BOT_TOKEN).build()
 
     # Command-Handler und CallbackQueryHandler
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
-    
-    # Global Error-Handler 
-    async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
-        """Fehler global behandeln und loggen."""
-        try:
-            raise context.error
-        except Exception as e:
-            print(f"Error: {e}")
 
-    application.add_error_handler(error_handler)
+    # Flask-Server parallel ausführen
+    from threading import Thread
 
+    def run_flask():
+        app.run(host="0.0.0.0", port=5000)
 
-    # Webhook-URL und Server-Details
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL")
-    if not WEBHOOK_URL:
-        raise ValueError("WEBHOOK_URL environment variable is not set.")
+    flask_thread = Thread(target=run_flask)
+    flask_thread.start()
 
-    # Webhook starten
-    try:
-        application.run_webhook(
-            listen="0.0.0.0",  # Lauscht auf alle IPs
-            port=8443,        # Standardport für Telegram-Webhooks
-            webhook_url=WEBHOOK_URL  # Die vollständige URL deines Bots
-        )
-        print("Bot is running with Webhooks...")
-    except Exception as e:
-        print(f"Failed to start the bot: {e}")
+    # Telegram-Bot starten
+    print("Bot is starting...")
+    application.run_polling()
 
 if __name__ == "__main__":
     main()
+
