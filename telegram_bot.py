@@ -75,7 +75,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if group == "bereal":
             text = (
                 f"✅ **Thank you! You are registered as a BeReal User. Your Participant-ID is: {chat_id} **\n\n"
-                "Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G"\n\n"
+                f"💡Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G\n\n\n"
                 "💌 After a BeReal moment, you'll get a survey link with short questions.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
                 "➕ Use /new to submit additional entries when posting a BeLate."
@@ -83,7 +83,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif group == "bystander":
             text = (
                 f"✅ **Thank you! You are registered as a Bystander. Your Participant-ID is: {chat_id} **\n\n"
-                "Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G"\n\n"
+                f"💡Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G\n\n\n"
                 "💌️ After a BeReal moment, you'll get a survey link with short questions.\n\n"
                 "🚫 Ignore notifications if you haven't experienced a Bereal moment.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
