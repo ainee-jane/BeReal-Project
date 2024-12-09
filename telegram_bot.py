@@ -40,6 +40,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
             "active_days_list": [],
+            "initial_survey_completed": False,
             "survey_links_sent": [],
         })
 
@@ -72,22 +73,17 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(reply_markup=None)
 
         # Nachricht und Buttons je nach Auswahl
+        initial_survey_url = f"https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G?STUDY_ID={chat_id}"
+
         if group == "bereal":
             text = (
                 f"✅ Thank you! You are registered as a BeReal User. Your Participant-ID is: {chat_id} \n\n"
-                f"💡 Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G \n\n"
-                "💌 After a BeReal moment, you'll get a survey link with short questions.\n\n"
-                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
-                "➕ Use /new to submit additional entries when posting a BeLate."
+                f"💡 Please answer a few initial questions: {initial_survey_url} \n\n"
             )
         elif group == "bystander":
             text = (
                 f"✅ Thank you! You are registered as a Bystander. Your Participant-ID is: {chat_id} \n\n"
-                f"💡 Please answer a few initial questions: https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G \n\n"
-                "💌️ After a BeReal moment, you'll get a survey link with short questions.\n\n"
-                "🚫 Ignore notifications if you haven't experienced a Bereal moment.\n\n"
-                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
-                "➕ Use /new to submit additional entries if you experience more BeReal interactions."
+                f"💡 Please answer a few initial questions: {initial_survey_url} \n\n"
             )
         else:
             text = "❌ Invalid group. Please try again with /start."
@@ -97,6 +93,44 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except FirebaseError as e:
         await query.message.reply_text("There was an error saving your group. Please try again later.")
         print(f"Firebase error: {e}")
+
+
+# Check if the initial survey is completed and send an appropriate message
+async def check_initial_survey_status(chat_id):
+    try:
+        doc_ref = db.collection("chat_ids").document(str(chat_id))
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return "❌ You are not registered. Please start with /start."
+
+        user_data = doc.to_dict()
+        initial_survey_completed = user_data.get("initial_survey_completed", False)
+        group = user_data.get("group", "")
+
+        if initial_survey_completed:
+            if group == "bereal":
+                return (
+                    "✅ Thank you for completing the onboarding survey!\n\n"
+                    "💌 After a BeReal moment, you'll get a survey link with short questions.\n\n"
+                    "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
+                    "➕ Use /new to submit additional entries when posting a BeLate."
+                )
+            elif group == "bystander":
+                return (
+                    "✅ Thank you for completing the onboarding survey!\n\n"
+                    "💌️ After a BeReal moment, you'll get a survey link with short questions.\n\n"
+                    "🚫 Ignore notifications if you haven't experienced a Bereal moment.\n\n"
+                    "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
+                    "➕ Use /new to submit additional entries if you experience more BeReal interactions."
+                )
+        else:
+            return "❌ Please complete the initial survey to proceed. Contact the study administrator if you encounter issues."
+    except Exception as e:
+        print(f"Error fetching survey status: {e}")
+        return "⚠️ There was an issue fetching your status. Please try again later."
+
+
 
 # Command-Handler für neuen Eintrag (/new)
 async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):

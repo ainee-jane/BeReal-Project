@@ -17,6 +17,37 @@ cred = credentials.Certificate(firebase_credentials)
 initialize_app(cred)
 db = firestore.client()
 
+#Endpoint to track if the initial survey has been completed.
+@app.route("/track_initial_survey", methods=["GET"])
+def track_initial_survey():
+    try:
+        # Abrufen der Parameter aus der URL
+        study_id = request.args.get("STUDY_ID")
+        completed = request.args.get("completed", "false").lower() == "true"  # Konvertiere zu Boolean
+
+        # Validierung von STUDY_ID
+        if not study_id or not study_id.isdigit():
+            return jsonify({"error": "Invalid or missing STUDY_ID"}), 400
+
+        # Firebase-Dokument für den STUDY_ID abrufen
+        doc_ref = db.collection("chat_ids").document(study_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"error": "Participant not found"}), 404
+
+        # Aktualisierung des initial_survey_completed-Werts
+        doc_ref.update({"initial_survey_completed": completed})
+        return jsonify({
+            "message": "Initial survey status updated",
+            "STUDY_ID": study_id,
+            "completed": completed
+        }), 200
+
+    except Exception as e:
+        print(f"Error in track_initial_survey: {e}")
+        return jsonify({"error": "Failed to update survey status"}), 500
+
 
 # Flask-Endpoint: Aktive Tage tracken
 @app.route("/track_active_day", methods=["GET"])
