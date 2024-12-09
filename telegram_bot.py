@@ -92,7 +92,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         else:
             text = "❌ Invalid group. Please try again with /start."
 
-        await context.bot.send_message(chat_id=chat_id, text=text, parse_mode="Markdown")
+        await context.bot.send_message(chat_id=chat_id, text=text)
 
     except FirebaseError as e:
         await query.message.reply_text("There was an error saving your group. Please try again later.")
