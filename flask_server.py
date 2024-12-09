@@ -154,7 +154,7 @@ def send_active_days_notification(chat_id, active_days_count):
                 f"🎉 Congratulations, you have achieved {active_days_count} active days so far!\n"
                 f"💪 Keep it up, you're halfway there! \n\n"
             )
-        elif active_days_count == 14:
+        if active_days_count == 14:
             # Nachricht für den 14. Tag mit Survey-Link und Doodle-Kalender
             final_survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_6lDaOQOPufoJJPM?STUDY_ID={chat_id}"
             doodle_link = "https://doodle.com/schedule-your-interview"
