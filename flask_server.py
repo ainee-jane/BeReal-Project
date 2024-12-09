@@ -95,7 +95,7 @@ def track_initial_survey():
 @app.route("/track_active_day", methods=["GET"])
 def track_active_day():
     print(f"Incoming request: {request.args}")  # Loggt alle URL-Parameter
-
+   
     # STUDY_ID aus der URL abrufen
     study_id = request.args.get("STUDY_ID")
     active = request.args.get("active", "false").lower()
@@ -126,15 +126,28 @@ def track_active_day():
         if str(current_date) not in active_days_list:
             active_days_list.append(str(current_date))
             try:
-                # Firebase-Dokument aktualisieren
+                # Update in Firebase
                 doc_ref.update({"active_days_list": active_days_list})
 
-                # Anzahl der aktiven Tage berechnen
+                # Anzahl aktiver Tage überprüfen
                 active_days_count = len(active_days_list)
 
-                # Nachricht nach 7 oder 14 aktiven Tagen senden
-                if active_days_count == 7 or active_days_count == 14:
-                    send_active_days_notification(chat_id, active_days_count)
+                # Telegram-Benachrichtigung senden
+                if active_days_count == 7:
+                    message = (
+                        f"🎉 Congratulations! You have reached 7 active days! Keep going! "
+                        f"You've recorded {active_days_count} active days so far."
+                    )
+                    send_telegram_message(chat_id, message)
+
+                if active_days_count == 14:
+                    message = (
+                        f"🎉 Fantastic! You have completed 14 active days! "
+                        f"This concludes your participation. Please fill out the final survey and schedule your interview:\n\n"
+                        "📋 [Final Survey Link](https://example.com/final-survey)\n\n"
+                        "📅 [Doodle Calendar for Interview](https://example.com/doodle-calendar)"
+                    )
+                    send_telegram_message(chat_id, message)
 
                 return jsonify({"message": "Active day recorded", "active_days": active_days_count}), 200
             except Exception as e:
@@ -146,38 +159,16 @@ def track_active_day():
     return jsonify({"message": "Tracking updated successfully", "STUDY_ID": study_id, "active": active}), 200
 
 
-def send_active_days_notification(chat_id, active_days_count):
-    """Send a Telegram notification to the user after 7 or 14 active days."""
-    try:
-        if active_days_count == 7:
-            message = (
-                f"🎉 Congratulations, you have achieved {active_days_count} active days so far!\n"
-                f"💪 Keep it up, you're halfway there!\n\n"
-            )
-        elif active_days_count == 14:
-            # Nachricht für den 14. Tag mit Survey-Link und Doodle-Kalender
-            final_survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_6lDaOQOPufoJJPM?STUDY_ID={chat_id}"
-            doodle_link = "https://doodle.com/schedule-your-interview"
-
-            message = (
-                f"🎉 Congratulations! You have reached 14 active days in the study. This marks the end of your participation!\n\n"
-                f"✅ Please complete the final survey: {final_survey_link}\n\n"
-                f"🗓️ After completing the survey, please use this link to schedule an interview: {doodle_link}"
-            )
-
-        # Telegram-API verwenden, um Nachricht zu senden
-        payload = {
-            "chat_id": chat_id,
-            "text": message,
-            "parse_mode": "HTML"
-        }
-
-        response = requests.post(TELEGRAM_API_URL, json=payload)
-        if response.status_code != 200:
-            print(f"Error sending Telegram message: {response.json()}")
-
-    except Exception as e:
-        print(f"Error in send_active_days_notification: {e}")
+def send_telegram_message(chat_id, message):
+    """Helper-Funktion zum Senden von Telegram-Nachrichten."""
+    payload = {
+        "chat_id": chat_id,
+        "text": message,
+        "parse_mode": "HTML"  # Du kannst HTML verwenden oder Markdown deaktivieren
+    }
+    response = requests.post(TELEGRAM_API_URL, json=payload)
+    if response.status_code != 200:
+        print(f"Error sending Telegram message: {response.json()}")
 
 
 if __name__ == "__main__":
