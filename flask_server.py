@@ -134,18 +134,21 @@ def track_active_day():
 
                 # Telegram-Benachrichtigung senden
                 if active_days_count == 7:
+                    print(f"Triggering notification for 7 active days. active_days_count: {active_days_count}")
                     message = (
-                        f"🎉 Congratulations! You have reached 7 active days! Keep going! "
-                        f"You've recorded {active_days_count} active days so far."
+                        f"🎉 Congratulations, you have reached {active_days_count} active days so far! Keep going! "
                     )
                     send_telegram_message(chat_id, message)
 
                 if active_days_count == 14:
+                    print(f"Triggering notification for 14 active days. active_days_count: {active_days_count}")
+                    final_survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_6lDaOQOPufoJJPM?STUDY_ID={chat_id}"
+                    doodle_link = "https://doodle.com/schedule-your-interview"
+
                     message = (
-                        f"🎉 Fantastic! You have completed 14 active days! "
-                        f"This concludes your participation. Please fill out the final survey and schedule your interview:\n\n"
-                        "📋 [Final Survey Link](https://example.com/final-survey)\n\n"
-                        "📅 [Doodle Calendar for Interview](https://example.com/doodle-calendar)"
+                         f"🎉 Congratulations! You have reached 14 active days in the study. This marks the end of your participation!\n\n"
+                         f"✅ Please complete the final survey: {final_survey_link}\n\n"
+                         f"🗓️ After completing the survey, please use this link to schedule an interview: {doodle_link}"
                     )
                     send_telegram_message(chat_id, message)
 
@@ -168,7 +171,9 @@ def send_telegram_message(chat_id, message):
     }
     response = requests.post(TELEGRAM_API_URL, json=payload)
     if response.status_code != 200:
-        print(f"Error sending Telegram message: {response.json()}")
+        print(f"Error sending Telegram message to {chat_id}: {response.status_code}, {response.text}")
+    else:
+        print(f"Message sent successfully to {chat_id}: {message}")
 
 
 if __name__ == "__main__":
