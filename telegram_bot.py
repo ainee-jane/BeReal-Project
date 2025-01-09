@@ -109,33 +109,57 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         user_data = user_doc.to_dict()
         group = user_data.get("group", "")
+        questions_answered = user_data.get("questions_answered", {})
 
-        # Survey-Link basierend auf Gruppe generieren
+        # Fragenset basierend auf der Gruppe
         if group == "bereal":
-            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}"
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=(
-                    f"📋 BeReal User Survey Link**:\n{survey_link}\n\n"
-                    f"➕ Use /new to submit additional entries when posting a BeLate."
-                ),
-              
-            )
+            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5"]
         elif group == "bystander":
-            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_42WjqWWGJnMkj5Q?STUDY_ID={chat_id}"
-            await context.bot.send_message(
-                chat_id=chat_id,
-                text=(
-                    f"📋 Bystander Survey Link**:\n{survey_link}\n\n"
-                    f"➕ Use /new to submit additional entries if you experience more BeReal interactions."
-                ),
-             
-            )
+            question_pool = ["Q1", "Q3", "Q5"]
         else:
             await update.message.reply_text("❌ Unknown group. Please contact support.")
+            return
+
+        # Fragen sortieren nach Häufigkeit
+        sorted_questions = sorted(question_pool, key=lambda q: questions_answered.get(q, 0))
+
+        # Wähle die ersten 5 Fragen
+        selected_questions = sorted_questions[:5]
+
+        # Aktualisiere die Häufigkeit in Firebase
+        for question in selected_questions:
+            questions_answered[question] = questions_answered.get(question, 0) + 1
+
+        db.collection("chat_ids").document(str(chat_id)).update({
+            "questions_answered": questions_answered
+        })
+
+        # Generiere den Umfragelink
+        questions_param = ",".join(selected_questions)
+        if group == "bereal":
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_0H4idVDYEQwVX7w?STUDY_ID={chat_id}&QUESTIONS={questions_param}"
+            follow_up_message = "➕ Use /new to submit additional entries when posting a BeLate."
+        elif group == "bystander":
+            survey_link = f"https://migroup.qualtrics.com/jfe/form/SV_42WjqWWGJnMkj5Q?STUDY_ID={chat_id}&QUESTIONS={questions_param}"
+            follow_up_message = "➕ Use /new to submit additional entries if you experience more BeReal interactions."
+
+        # Sende die Nachricht
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text=(
+                f"📋 Here is your new survey link:\n{survey_link}\n\n"
+                f"{follow_up_message}"
+            ),
+        )
+        print(f"New survey link sent to {chat_id} ({group}): {survey_link}")
+
     except FirebaseError as e:
         print(f"Firebase error: {e}")
         await update.message.reply_text("There was an error processing your request. Please try again later.")
+    except Exception as e:
+        print(f"Error: {e}")
+        await update.message.reply_text("An unexpected error occurred. Please try again later.")
+
 
 def main():
     print("Bot is starting...")
