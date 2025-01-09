@@ -126,14 +126,6 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Wähle die ersten 5 Fragen
         selected_questions = sorted_questions[:5]
 
-        # Aktualisiere die Häufigkeit in Firebase
-        for question in selected_questions:
-            questions_answered[question] = questions_answered.get(question, 0) + 1
-
-        db.collection("chat_ids").document(str(chat_id)).update({
-            "questions_answered": questions_answered
-        })
-
         # Generiere den Umfragelink
         questions_param = ",".join(selected_questions)
         if group == "bereal":
@@ -159,6 +151,7 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         print(f"Error: {e}")
         await update.message.reply_text("An unexpected error occurred. Please try again later.")
+
 
 
 def main():

@@ -181,41 +181,38 @@ def send_active_days_notification(chat_id, active_days_count):
 
 
 # Update questions answered
-@app.route("/update_questions", methods=["GET"])
+@app.route("/update_questions", methods=["POST"])
 def update_questions():
     try:
-        # Parameter aus der Anfrage abrufen
-        study_id = request.args.get("STUDY_ID")
-        questions = request.args.get("QUESTIONS")
+        # Daten aus der Qualtrics-Anfrage extrahieren
+        study_id = request.json.get("STUDY_ID")
+        answered_questions = request.json.get("QUESTIONS", "").split(",")
 
-        if not study_id or not questions:
+        if not study_id or not answered_questions:
             return jsonify({"error": "Missing STUDY_ID or QUESTIONS"}), 400
-
-        # Fragen in eine Liste umwandeln
-        question_list = questions.split(",")
 
         # Firebase-Dokument abrufen
         doc_ref = db.collection("chat_ids").document(study_id)
-        doc = doc_ref.get()
+        doc_snapshot = doc_ref.get()
 
-        if not doc.exists:
+        if not doc_snapshot.exists():
             return jsonify({"error": "Participant not found"}), 404
 
-        # Fragenhäufigkeit aktualisieren
-        user_data = doc.to_dict()
+        # Fragen-Historie aktualisieren
+        user_data = doc_snapshot.to_dict()
         questions_answered = user_data.get("questions_answered", {})
 
-        for question in question_list:
+        for question in answered_questions:
             questions_answered[question] = questions_answered.get(question, 0) + 1
 
-        # Aktualisierung speichern
+        # Firebase-Dokument aktualisieren
         doc_ref.update({"questions_answered": questions_answered})
 
-        return jsonify({"message": "Questions updated successfully", "questions_answered": questions_answered}), 200
+        return jsonify({"message": "Questions answered updated successfully"}), 200
 
     except Exception as e:
-        print(f"Error updating questions: {e}")
-        return jsonify({"error": "Failed to update questions"}), 500
+        print(f"Error in /update_questions: {e}")
+        return jsonify({"error": "Internal server error"}), 500
 
 
 if __name__ == "__main__":
