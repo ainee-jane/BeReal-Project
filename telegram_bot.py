@@ -113,9 +113,9 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         # Fragenset basierend auf der Gruppe
         if group == "bereal":
-            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5"]
+            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10"]
         elif group == "bystander":
-            question_pool = ["Q1", "Q3", "Q5"]
+            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8"]
         else:
             await update.message.reply_text("❌ Unknown group. Please contact support.")
             return
