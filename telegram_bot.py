@@ -42,6 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "active_days_list": [],
             "initial_survey_completed": False,
             "survey_links_sent": [],
+            "questions_answered": {},
         })
 
         keyboard = [
