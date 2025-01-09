@@ -180,5 +180,43 @@ def send_active_days_notification(chat_id, active_days_count):
         print(f"Error in send_active_days_notification: {e}")
 
 
+# Update questions answered
+@app.route("/update_questions", methods=["GET"])
+def update_questions():
+    try:
+        # Parameter aus der Anfrage abrufen
+        study_id = request.args.get("STUDY_ID")
+        questions = request.args.get("QUESTIONS")
+
+        if not study_id or not questions:
+            return jsonify({"error": "Missing STUDY_ID or QUESTIONS"}), 400
+
+        # Fragen in eine Liste umwandeln
+        question_list = questions.split(",")
+
+        # Firebase-Dokument abrufen
+        doc_ref = db.collection("chat_ids").document(study_id)
+        doc = doc_ref.get()
+
+        if not doc.exists:
+            return jsonify({"error": "Participant not found"}), 404
+
+        # Fragenhäufigkeit aktualisieren
+        user_data = doc.to_dict()
+        questions_answered = user_data.get("questions_answered", {})
+
+        for question in question_list:
+            questions_answered[question] = questions_answered.get(question, 0) + 1
+
+        # Aktualisierung speichern
+        doc_ref.update({"questions_answered": questions_answered})
+
+        return jsonify({"message": "Questions updated successfully", "questions_answered": questions_answered}), 200
+
+    except Exception as e:
+        print(f"Error updating questions: {e}")
+        return jsonify({"error": "Failed to update questions"}), 500
+
+
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)), debug=True)
