@@ -184,35 +184,47 @@ def send_active_days_notification(chat_id, active_days_count):
 @app.route("/update_questions", methods=["POST"])
 def update_questions():
     try:
-        # Daten aus der Qualtrics-Anfrage extrahieren
-        study_id = request.json.get("STUDY_ID")
-        answered_questions = request.json.get("QUESTIONS", "").split(",")
+        # STUDY_ID und QUESTIONS aus den Query-Parametern abrufen
+        study_id = request.args.get("STUDY_ID")
+        questions = request.args.get("QUESTIONS")
 
-        if not study_id or not answered_questions:
+        # Debug-Ausgabe
+        print(f"Received STUDY_ID: {study_id}")
+        print(f"Received QUESTIONS: {questions}")
+
+        # Validierung der Parameter
+        if not study_id or not questions:
+            print("Error: Missing STUDY_ID or QUESTIONS")
             return jsonify({"error": "Missing STUDY_ID or QUESTIONS"}), 400
 
-        # Firebase-Dokument abrufen
+        # Logik zur Verarbeitung (z. B. Firebase-Update)
+        # Überprüfen, ob Firebase korrekt arbeitet
+        db = firestore.client()
         doc_ref = db.collection("chat_ids").document(study_id)
-        doc_snapshot = doc_ref.get()
 
-        if not doc_snapshot.exists():
-            return jsonify({"error": "Participant not found"}), 404
+        # Dokument abrufen und prüfen, ob es existiert
+        doc = doc_ref.get()
+        if not doc.exists:
+            print(f"Error: Document with STUDY_ID {study_id} not found")
+            return jsonify({"error": "Document not found"}), 404
 
-        # Fragen-Historie aktualisieren
-        user_data = doc_snapshot.to_dict()
-        questions_answered = user_data.get("questions_answered", {})
-
-        for question in answered_questions:
+        # Fragen aktualisieren
+        questions_answered = doc.to_dict().get("questions_answered", {})
+        for question in questions.split(","):
             questions_answered[question] = questions_answered.get(question, 0) + 1
 
-        # Firebase-Dokument aktualisieren
+        # Firebase aktualisieren
         doc_ref.update({"questions_answered": questions_answered})
+        print(f"Updated questions_answered for {study_id}: {questions_answered}")
 
-        return jsonify({"message": "Questions answered updated successfully"}), 200
+        # Erfolgreiche Antwort
+        return jsonify({"message": "Update successful"}), 200
 
     except Exception as e:
+        # Fehler protokollieren
         print(f"Error in /update_questions: {e}")
         return jsonify({"error": "Internal server error"}), 500
+
 
 
 if __name__ == "__main__":
