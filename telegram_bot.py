@@ -76,12 +76,10 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_reply_markup(reply_markup=None)
 
         # Nachricht und Buttons je nach Auswahl
-        initial_survey_url = f"https://migroup.qualtrics.com/jfe/form/SV_0wk9mk29bMFlI6G?STUDY_ID={chat_id}"
-
         if group == "bereal":
             text = (
                 f"✅ Thank you! You are registered as a BeReal User. Your Participant-ID is: {chat_id} \n\n"
-                "🔔 Important: Turn on notifications for telegram.\n\n"
+                "🔔 Important: Please turn on notifications for the telegram bot.\n\n"
                 "💌 After a BeReal moment, you'll get a survey link with short questions. Please respond immediately.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
                 "➕ Use /new to submit additional entries when posting a BeLate."
@@ -89,10 +87,10 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         elif group == "bystander":
             text = (
                 f"✅ Thank you! You are registered as a Bystander. Your Participant-ID is: {chat_id} \n\n"
-                "🔔 Important: Turn on notifications for the Telegram bot.\n\n"
+                "🔔 Important: Please turn on notifications for the telegram bot.\n\n"
                 "💌️ After a BeReal moment, you'll get a survey link with short questions. Please respond immediately.\n\n"
-                "🚫 Ignore notifications if you haven't experienced a Bereal moment.\n\n"
-                "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
+                "🚫 You can ignore notifications if you haven't experienced a Bereal moment.\n\n"
+                "📅 Participation ends after 14 active days. A day is 'active' if at least one BeReal interaction is reported.\n\n"
                 "➕ Use /new to submit additional entries if you experience more BeReal interactions."
             )
         else:
