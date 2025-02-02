@@ -31,7 +31,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         doc_ref = db.collection("chat_ids").document(str(chat_id))
 
-        if doc_ref.get().exists:
+        doc_snapshot = doc_ref.get()
+        if doc_snapshot.exists:
+            doc_ref.update({"notifications_active": True})
             await update.message.reply_text("You are already registered and will receive notifications. Use /new to submit additional entries.")
             return
 
@@ -40,9 +42,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
             "active_days_list": [],
-            "initial_survey_completed": False,
-            "survey_links_sent": [],
             "questions_answered": {},
+            "notifications_active": True,
         })
 
         keyboard = [
@@ -51,7 +52,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         ]
         reply_markup = InlineKeyboardMarkup(keyboard)
 
-        await update.message.reply_text("Welcome to the BeReal study! \n\n If you are an active BeReal user, select “BeReal user”, if you are a Bystander who regularly experiences BeReal moments, select “Bystander”. Please select your group:", reply_markup=reply_markup)
+        await update.message.reply_text("Welcome to the BeReal study! \n\n If you are an active BeReal user, select “BeReal User”, if you are a Bystander who regularly experiences BeReal moments, select “Bystander”.", reply_markup=reply_markup)
 
     except FirebaseError as e:
         await update.message.reply_text("Error registering your data. Please try again later.")
@@ -79,7 +80,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if group == "bereal":
             text = (
                 f"✅ Thank you! You are registered as a BeReal User. Your Participant-ID is: {chat_id} \n\n"
-                "🔔 Important: Turn on notifications for the Telegram bot.\n\n"
+                "🔔 Important: Turn on notifications for telegram.\n\n"
                 "💌 After a BeReal moment, you'll get a survey link with short questions. Please respond immediately.\n\n"
                 "📅 Participation ends after 14 active days. A day is 'active' if at least one relevant interaction is reported.\n\n"
                 "➕ Use /new to submit additional entries when posting a BeLate."
