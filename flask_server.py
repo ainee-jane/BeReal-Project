@@ -42,8 +42,10 @@ def track_active_day():
     # STUDY_ID als chat_id verwenden
     chat_id = study_id
 
-    # Datum des aktuellen Tages (UTC)
-    current_date = datetime.now(pytz.utc).date()
+    # Aktuelles Datum und Uhrzeit (UTC+1)
+    current_datetime = datetime.now(pytz.timezone("Europe/Berlin"))
+    current_date_str = current_datetime.date().isoformat()  # Nur das Datum (z. B. "2025-01-31")
+    current_datetime_str = current_datetime.isoformat()     # Vollständiger Zeitstempel (z. B. "2025-01-31T17:30:00+01:00")
 
     # Firebase-Dokument abrufen
     doc_ref = db.collection("chat_ids").document(chat_id)
@@ -55,30 +57,35 @@ def track_active_day():
     # Daten aus dem Dokument abrufen
     user_data = doc.to_dict()
     active_days_list = user_data.get("active_days_list", [])
+    activity_timestamps = user_data.get("activity_timestamps", [])
 
-    # Aktive Tage aktualisieren
-    if active == "true":
-        if str(current_date) not in active_days_list:
-            active_days_list.append(str(current_date))
-            try:
-                # Firebase-Dokument aktualisieren
-                doc_ref.update({"active_days_list": active_days_list})
+    # Zeitstempel immer hinzufügen, unabhängig vom Datum
+    activity_timestamps.append(current_datetime_str)
 
-                # Anzahl der aktiven Tage berechnen
-                active_days_count = len(active_days_list)
+    # Nur aktualisieren, wenn das Datum noch nicht in der Liste ist
+    if current_date_str not in active_days_list:
+        active_days_list.append(current_date_str)
 
-                # Nachricht nach 7 oder 14 aktiven Tagen senden
-                if active_days_count == 7 or active_days_count == 14:
-                    send_active_days_notification(chat_id, active_days_count)
+    try:
+        # Firebase-Dokument aktualisieren
+        doc_ref.update({
+            "active_days_list": active_days_list,
+            "activity_timestamps": activity_timestamps
+        })
 
-                return jsonify({"message": "Active day recorded", "active_days": active_days_count}), 200
-            except Exception as e:
-                print(f"Update error: {e}")
-                return jsonify({"error": "Failed to update active_days_list"}), 500
-        else:
-            return jsonify({"message": "Today has already been counted as an active day"}), 200
+        # Anzahl der aktiven Tage berechnen
+        active_days_count = len(active_days_list)
 
-    return jsonify({"message": "Tracking updated successfully", "STUDY_ID": study_id, "active": active}), 200
+        # Nachricht nach 7 oder 14 aktiven Tagen senden
+        if active_days_count == 7 or active_days_count == 14:
+            send_active_days_notification(chat_id, active_days_count)
+
+        return jsonify({"message": "Active day recorded", "active_days": active_days_count}), 200
+    except Exception as e:
+        print(f"Update error: {e}")
+        return jsonify({"error": "Failed to update active_days_list"}), 500
+
+
 
 
 def send_active_days_notification(chat_id, active_days_count):
