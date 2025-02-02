@@ -42,6 +42,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "name": f"{first_name} {last_name}".strip(),
             "username": username,
             "active_days_list": [],
+            "activity_timestamps": [],
             "questions_answered": {},
             "notifications_active": True,
         })
