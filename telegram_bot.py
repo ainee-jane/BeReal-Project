@@ -159,6 +159,31 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Error: {e}")
         await update.message.reply_text("An unexpected error occurred. Please try again later.")
 
+#stop to exit the study
+async def stop_notifications(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.message.chat_id
+
+    try:
+        # Prüfe, ob der Benutzer registriert ist
+        user_doc = db.collection("chat_ids").document(str(chat_id)).get()
+        if not user_doc.exists:
+            await update.message.reply_text("❌ You are not registered. Please use /start to register.")
+            return
+
+        # Aktualisiere den Status in Firebase
+        db.collection("chat_ids").document(str(chat_id)).update({"notifications_active": False})
+
+        # Sende eine Bestätigungsnachricht
+        await update.message.reply_text(
+            "🔕 You will no longer receive notifications from the BeReal study bot.\n"
+            "If you want to reactivate notifications, you can use the /start command."
+        )
+
+    except FirebaseError as e:
+        await update.message.reply_text("⚠️ There was an error processing your request. Please try again later.")
+        print(f"Firebase error: {e}")
+
+
 
 
 def main():
@@ -167,6 +192,8 @@ def main():
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("new", new_entry))
     application.add_handler(CallbackQueryHandler(group_selection))
+    application.add_handler(CommandHandler("stop", stop_notifications))
+
 
     WEBHOOK_URL = os.getenv("WEBHOOK_URL")
     if not WEBHOOK_URL:
