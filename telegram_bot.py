@@ -72,7 +72,7 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         # Registrierung der Gruppe
         db.collection("chat_ids").document(str(chat_id)).update({"group": group})
 
-        # Bearbeite die ursprüngliche Nachricht, um die Buttons inaktiv zu machen
+        #Bearbeite die ursprüngliche Nachricht, um die Buttons inaktiv zu machen
         await query.edit_message_reply_markup(reply_markup=None)
 
         # Nachricht und Buttons je nach Auswahl
@@ -103,12 +103,12 @@ async def group_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
         print(f"Firebase error: {e}")
 
 
-# Command-Handler für neuen Eintrag (/new)
+#Command-Handler für neuen Eintrag (/new)
 async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
     chat_id = update.message.chat_id
 
     try:
-        # Benutzerinformationen aus Firebase abrufen
+        #Benutzerinformationen aus Firebase abrufen
         user_doc = db.collection("chat_ids").document(str(chat_id)).get()
         if not user_doc.exists:
             await update.message.reply_text("❌ You are not registered. Please start with /start.")
@@ -118,11 +118,11 @@ async def new_entry(update: Update, context: ContextTypes.DEFAULT_TYPE):
         group = user_data.get("group", "")
         questions_answered = user_data.get("questions_answered", {})
 
-        # Fragenset basierend auf der Gruppe
+        #Fragenset basierend auf der Gruppe
         if group == "bereal":
-            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9", "Q10"]
+            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]
         elif group == "bystander":
-            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8"]
+            question_pool = ["Q1", "Q2", "Q3", "Q4", "Q5", "Q6", "Q7", "Q8", "Q9"]
         else:
             await update.message.reply_text("❌ Unknown group. Please contact support.")
             return
