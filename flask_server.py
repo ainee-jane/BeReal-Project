@@ -102,7 +102,7 @@ def send_active_days_notification(chat_id, active_days_count):
             doodle_link = "https://calendly.com/a-voss-campus/30min"
 
             message = (
-                f"🎉 Congratulations! You have reached 14 active days in the study. This marks the end of your participation!\n\n"
+                f"🎉 Congratulations! You have reached 14 active days in the study.\n\n"
                 f"✅ Please complete the final survey: {final_survey_link}\n\n"
                 f"⏰ Important: After completing the survey, please book a short online interview here: {doodle_link}\n\n"
                 f"You can then send /stop to receive no further notifications."
